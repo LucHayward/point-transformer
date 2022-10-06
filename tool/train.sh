@@ -2,6 +2,7 @@
 
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
+conda activate pt
 PYTHON=python
 
 TRAIN_CODE=train.py
