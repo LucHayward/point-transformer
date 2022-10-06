@@ -79,7 +79,11 @@ def main():
     if args.data_name == 's3dis':
         S3DIS(split='train', data_root=args.data_root, test_area=args.test_area)
         S3DIS(split='val', data_root=args.data_root, test_area=args.test_area)
+    elif args.data_name == 'church':
+        S3DIS(split='train', data_root=args.data_root, test_area=args.test_area)
+        S3DIS(split='val', data_root=args.data_root, test_area=args.test_area)
     else:
+        print(f"Err dataset {args.data_name} not yet implemented")
         raise NotImplementedError()
     if args.multiprocessing_distributed:
         port = find_free_port()
@@ -154,7 +158,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             model.load_state_dict(checkpoint['state_dict'], strict=True)
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
-            #best_iou = 40.0
+            # best_iou = 40.0
             best_iou = checkpoint['best_iou']
             if main_process():
                 logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
@@ -162,25 +166,36 @@ def main_worker(gpu, ngpus_per_node, argss):
             if main_process():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
-    train_transform = t.Compose([t.RandomScale([0.9, 1.1]), t.ChromaticAutoContrast(), t.ChromaticTranslation(), t.ChromaticJitter(), t.HueSaturationTranslation()])
-    train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size, voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
+    if args.data_name == "s3dis":
+        train_transform = t.Compose(
+            [t.RandomScale([0.9, 1.1]), t.ChromaticAutoContrast(), t.ChromaticTranslation(), t.ChromaticJitter(),
+             t.HueSaturationTranslation()])
+    else:
+        train_transform = t.Compose([t.RandomScale([0.9, 1, 1])])
+    train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
+                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
     if main_process():
-            logger.info("train_data samples: '{}'".format(len(train_data)))
+        logger.info("train_data samples: '{}'".format(len(train_data)))
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)
     else:
         train_sampler = None
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=(train_sampler is None), num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True, collate_fn=collate_fn)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=(train_sampler is None),
+
+                                               drop_last=True, collate_fn=collate_fn)
 
     val_loader = None
     if args.evaluate:
         val_transform = None
-        val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size, voxel_max=800000, transform=val_transform)
+        val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
+                         voxel_max=800000, transform=val_transform)
         if args.distributed:
             val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
         else:
             val_sampler = None
-        val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size_val, shuffle=False, num_workers=args.workers, pin_memory=True, sampler=val_sampler, collate_fn=collate_fn)
+        val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size_val, shuffle=False,
+                                                 num_workers=args.workers, pin_memory=True, sampler=val_sampler,
+                                                 collate_fn=collate_fn)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -236,7 +251,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
     max_iter = args.epochs * len(train_loader)
     for i, (coord, feat, target, offset) in enumerate(train_loader):  # (n, 3), (n, c), (n), (b)
         data_time.update(time.time() - end)
-        coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
+        coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
+            non_blocking=True), offset.cuda(non_blocking=True)
         output = model([coord, feat, offset])
         if target.shape[-1] == 1:
             target = target[:, 0]  # for cls
@@ -278,7 +294,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                         'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
                         'Remain {remain_time} '
                         'Loss {loss_meter.val:.4f} '
-                        'Accuracy {accuracy:.4f}.'.format(epoch+1, args.epochs, i + 1, len(train_loader),
+                        'Accuracy {accuracy:.4f}.'.format(epoch + 1, args.epochs, i + 1, len(train_loader),
                                                           batch_time=batch_time, data_time=data_time,
                                                           remain_time=remain_time,
                                                           loss_meter=loss_meter,
@@ -367,5 +383,6 @@ def validate(val_loader, model, criterion):
 
 if __name__ == '__main__':
     import gc
+
     gc.collect()
     main()

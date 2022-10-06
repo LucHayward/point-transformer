@@ -32,7 +32,7 @@ TRAIN:
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
-  eval_freq: 1
+  eval_freq: 1  # How often to evaluate during training
 Distributed:
   dist_url: tcp://localhost:8888
   dist_backend: 'nccl'

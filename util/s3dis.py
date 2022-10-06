@@ -16,7 +16,7 @@ class S3DIS(Dataset):
         data_list = sorted(os.listdir(data_root))
         data_list = [item[:-4] for item in data_list if 'Area_' in item or ".npy" in item]
         if split == 'train':
-            self.data_list = [item for item in data_list if not f'Area_{test_area}' in item]
+            self.data_list = [item for item in data_list if not (f'Area_{test_area}' in item or "val" in item)]
         else:
             self.data_list = [item for item in data_list if f'Area_{test_area}' in item or "val" in item]
         for item in self.data_list:

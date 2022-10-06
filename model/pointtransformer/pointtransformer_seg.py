@@ -158,7 +158,7 @@ class PointTransformerSeg(nn.Module):
 
     def forward(self, pxo):
         p0, x0, o0 = pxo  # (n, 3), (n, c), (b)
-        x0 = p0 if self.c == 3 else torch.cat((p0, x0), 1)
+        x0 = p0 if self.c == 3 else torch.cat((p0, x0), 1)  # concat coords with feats
         p1, x1, o1 = self.enc1([p0, x0, o0])
         p2, x2, o2 = self.enc2([p1, x1, o1])
         p3, x3, o3 = self.enc3([p2, x2, o2])
