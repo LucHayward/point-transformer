@@ -55,7 +55,7 @@ def worker_init_fn(worker_id):
 
 def main_process():
     return not args.multiprocessing_distributed or (
-                args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
+            args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
 
 
 def main():
@@ -172,6 +172,16 @@ def main_worker(gpu, ngpus_per_node, argss):
             if main_process():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
+    try:
+        if args.freeze_body:
+            logger.info("Freezing body of model")
+            for p in model.parameters():
+                p.requires_grad = False
+            for p in model.cls.parameters():
+                p.requires_grad = True
+    except AttributeError as e:
+        logger.info("args.freeze_body not found, did you mean to include it?\n", e)
+
     if args.data_name == "s3dis":
         train_transform = t.Compose(
             [t.RandomScale([0.9, 1.1]), t.ChromaticAutoContrast(), t.ChromaticTranslation(), t.ChromaticJitter(),
@@ -187,7 +197,7 @@ def main_worker(gpu, ngpus_per_node, argss):
     else:
         train_sampler = None
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=(train_sampler is None),
-
+                                               num_workers=args.workers, pin_memory=True, sampler=train_sampler,
                                                drop_last=True, collate_fn=collate_fn)
 
     val_loader = None
@@ -259,6 +269,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)
+        # Batches are concatenated together (no batch dim) and offset is the indices of the batchs
         output = model([coord, feat, offset])
         if target.shape[-1] == 1:
             target = target[:, 0]  # for cls

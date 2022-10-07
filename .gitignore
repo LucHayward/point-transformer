@@ -27,3 +27,13 @@ outputs/
 .DS_Store
 /dataset/
 /exp/s3dis/pointtransformer_luc/
+/lib/pointops/pointops.egg-info/dependency_links.txt
+/.idea/misc.xml
+/.idea/modules.xml
+/lib/pointops/pointops.egg-info/PKG-INFO
+/.idea/point-transformer.iml
+/.idea/inspectionProfiles/profiles_settings.xml
+/lib/pointops/pointops.egg-info/SOURCES.txt
+/lib/pointops/pointops.egg-info/top_level.txt
+/.idea/vcs.xml
+/exp/

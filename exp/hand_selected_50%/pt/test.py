@@ -20,10 +20,13 @@ from util.voxelize import voxelize
 random.seed(123)
 np.random.seed(123)
 
+
 def get_parser():
     parser = argparse.ArgumentParser(description='PyTorch Point Cloud Semantic Segmentation')
-    parser.add_argument('--config', type=str, default='config/s3dis/s3dis_pointtransformer_repro.yaml', help='config file')
-    parser.add_argument('opts', help='see config/s3dis/s3dis_pointtransformer_repro.yaml for all options', default=None, nargs=argparse.REMAINDER)
+    parser.add_argument('--config', type=str, default='config/s3dis/s3dis_pointtransformer_repro.yaml',
+                        help='config file')
+    parser.add_argument('opts', help='see config/s3dis/s3dis_pointtransformer_repro.yaml for all options', default=None,
+                        nargs=argparse.REMAINDER)
     args = parser.parse_args()
     assert args.config is not None
     cfg = config.load_cfg_from_cfg_file(args.config)
@@ -135,9 +138,10 @@ def test(model, criterion, names):
             coord, feat, label, idx_data = data_load(item)
             pred = torch.zeros((label.size, args.classes)).cuda()
             idx_size = len(idx_data)
-            idx_list, coord_list, feat_list, offset_list  = [], [], [], []
+            idx_list, coord_list, feat_list, offset_list = [], [], [], []
             for i in range(idx_size):
-                logger.info('{}/{}: {}/{}/{}, {}'.format(idx + 1, len(data_list), i + 1, idx_size, idx_data[0].shape[0], item))
+                logger.info(
+                    '{}/{}: {}/{}/{}, {}'.format(idx + 1, len(data_list), i + 1, idx_size, idx_data[0].shape[0], item))
                 idx_part = idx_data[i]
                 coord_part, feat_part = coord[idx_part], feat[idx_part]
                 if args.voxel_max and coord_part.shape[0] > args.voxel_max:
@@ -151,15 +155,19 @@ def test(model, criterion, names):
                         delta = np.square(1 - dist / np.max(dist))
                         coord_p[idx_crop] += delta
                         coord_sub, feat_sub = input_normalize(coord_sub, feat_sub)
-                        idx_list.append(idx_sub), coord_list.append(coord_sub), feat_list.append(feat_sub), offset_list.append(idx_sub.size)
+                        idx_list.append(idx_sub), coord_list.append(coord_sub), feat_list.append(
+                            feat_sub), offset_list.append(idx_sub.size)
                         idx_uni = np.unique(np.concatenate((idx_uni, idx_sub)))
                 else:
                     coord_part, feat_part = input_normalize(coord_part, feat_part)
-                    idx_list.append(idx_part), coord_list.append(coord_part), feat_list.append(feat_part), offset_list.append(idx_part.size)
+                    idx_list.append(idx_part), coord_list.append(coord_part), feat_list.append(
+                        feat_part), offset_list.append(idx_part.size)
             batch_num = int(np.ceil(len(idx_list) / args.batch_size_test))
             for i in range(batch_num):
                 s_i, e_i = i * args.batch_size_test, min((i + 1) * args.batch_size_test, len(idx_list))
-                idx_part, coord_part, feat_part, offset_part = idx_list[s_i:e_i], coord_list[s_i:e_i], feat_list[s_i:e_i], offset_list[s_i:e_i]
+                idx_part, coord_part, feat_part, offset_part = idx_list[s_i:e_i], coord_list[s_i:e_i], feat_list[
+                                                                                                       s_i:e_i], offset_list[
+                                                                                                                 s_i:e_i]
                 idx_part = np.concatenate(idx_part)
                 coord_part = torch.FloatTensor(np.concatenate(coord_part)).cuda(non_blocking=True)
                 feat_part = torch.FloatTensor(np.concatenate(feat_part)).cuda(non_blocking=True)
@@ -168,7 +176,9 @@ def test(model, criterion, names):
                     pred_part = model([coord_part, feat_part, offset_part])  # (n, k)
                 torch.cuda.empty_cache()
                 pred[idx_part, :] += pred_part
-                logger.info('Test: {}/{}, {}/{}, {}/{}'.format(idx + 1, len(data_list), e_i, len(idx_list), args.voxel_max, idx_part.shape[0]))
+                logger.info(
+                    'Test: {}/{}, {}/{}, {}/{}'.format(idx + 1, len(data_list), e_i, len(idx_list), args.voxel_max,
+                                                       idx_part.shape[0]))
             loss = criterion(pred, torch.LongTensor(label).cuda(non_blocking=True))  # for reference
             pred = pred.max(1)[1].data.cpu().numpy()
 
@@ -182,9 +192,12 @@ def test(model, criterion, names):
         batch_time.update(time.time() - end)
         logger.info('Test: [{}/{}]-{} '
                     'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
-                    'Accuracy {accuracy:.4f}.'.format(idx + 1, len(data_list), label.size, batch_time=batch_time, accuracy=accuracy))
-        pred_save.append(pred); label_save.append(label)
-        np.save(pred_save_path, pred); np.save(label_save_path, label)
+                    'Accuracy {accuracy:.4f}.'.format(idx + 1, len(data_list), label.size, batch_time=batch_time,
+                                                      accuracy=accuracy))
+        pred_save.append(pred);
+        label_save.append(label)
+        np.save(pred_save_path, pred);
+        np.save(label_save_path, label)
 
     with open(os.path.join(args.save_folder, "pred.pickle"), 'wb') as handle:
         pickle.dump({'pred': pred_save}, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -199,7 +212,8 @@ def test(model, criterion, names):
     allAcc1 = sum(intersection_meter.sum) / (sum(target_meter.sum) + 1e-10)
 
     # calculation 2
-    intersection, union, target = intersectionAndUnion(np.concatenate(pred_save), np.concatenate(label_save), args.classes, args.ignore_label)
+    intersection, union, target = intersectionAndUnion(np.concatenate(pred_save), np.concatenate(label_save),
+                                                       args.classes, args.ignore_label)
     iou_class = intersection / (union + 1e-10)
     accuracy_class = intersection / (target + 1e-10)
     mIoU = np.mean(iou_class)
@@ -209,7 +223,8 @@ def test(model, criterion, names):
     logger.info('Val1 result: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}.'.format(mIoU1, mAcc1, allAcc1))
 
     for i in range(args.classes):
-        logger.info('Class_{} Result: iou/accuracy {:.4f}/{:.4f}, name: {}.'.format(i, iou_class[i], accuracy_class[i], names[i]))
+        logger.info('Class_{} Result: iou/accuracy {:.4f}/{:.4f}, name: {}.'.format(i, iou_class[i], accuracy_class[i],
+                                                                                    names[i]))
     logger.info('<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<')
 
 

@@ -5,7 +5,7 @@ DATA:
   classes: 2
   fea_dim: 4
   voxel_size: 0.04 # You can leave this blank/noneIn
-  voxel_max: 80000
+  voxel_max: 30000 # this should be agood tradeoff between area and batch size
   loop: 30
 
 TRAIN:
@@ -16,7 +16,7 @@ TRAIN:
   ignore_label: 255
   train_gpu: [0]
   workers: 16  # data loader workers
-  batch_size: 2  # batch size for training
+  batch_size: 4  # batch size for training
   batch_size_val: 2  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.5
   epochs: 100
@@ -30,7 +30,7 @@ TRAIN:
   print_freq: 1
   save_freq: 1
   save_path:
-  weight:  # path to initial weight (default: none)
+  weight: exp/hand_selected_50%/pretrained_froze/model/s3dis_2_class_head.pth # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   eval_freq: 1  # How often to evaluate during training

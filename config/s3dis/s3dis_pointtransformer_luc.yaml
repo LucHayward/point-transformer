@@ -4,7 +4,7 @@ DATA:
   test_area: 5
   classes: 13
   fea_dim: 6
-  voxel_size: 0.04
+  voxel_size: 0.04 # You can leave this blank/none
   voxel_max: 80000
   loop: 30
 

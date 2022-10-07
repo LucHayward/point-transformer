@@ -139,7 +139,7 @@ class PointTransformerSeg(nn.Module):
         self.dec2 = self._make_dec(block, planes[1], 2, share_planes, nsample=nsample[1])  # fusion p3 and p2
         self.dec1 = self._make_dec(block, planes[0], 2, share_planes, nsample=nsample[0])  # fusion p2 and p1
         self.cls = nn.Sequential(nn.Linear(planes[0], planes[0]), nn.BatchNorm1d(planes[0]), nn.ReLU(inplace=True), nn.Linear(planes[0], k))
-
+    #     TODO check instance and layer normor reduce the
     def _make_enc(self, block, planes, blocks, share_planes=8, stride=1, nsample=16):
         layers = []
         layers.append(TransitionDown(self.in_planes, planes * block.expansion, stride, nsample))
@@ -159,7 +159,7 @@ class PointTransformerSeg(nn.Module):
     def forward(self, pxo):
         p0, x0, o0 = pxo  # (n, 3), (n, c), (b)
         x0 = p0 if self.c == 3 else torch.cat((p0, x0), 1)  # concat coords with feats
-        p1, x1, o1 = self.enc1([p0, x0, o0])
+        p1, x1, o1 = self.enc1([p0, x0, o0]); del p0,x0,o0
         p2, x2, o2 = self.enc2([p1, x1, o1])
         p3, x3, o3 = self.enc3([p2, x2, o2])
         p4, x4, o4 = self.enc4([p3, x3, o3])

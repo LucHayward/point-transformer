@@ -32,6 +32,8 @@ def data_prepare(coord, feat, label, split='train', voxel_size=0.04, voxel_max=N
         uniq_idx = voxelize(coord, voxel_size)
         coord, feat, label = coord[uniq_idx], feat[uniq_idx], label[uniq_idx]
     if voxel_max and label.shape[0] > voxel_max:  # By some weird fuckery this always gives a spherical region I think?
+        # From what i can tell it takes that coord[init_index] which is a random pint in a set of points.
+        # Sorts the indices of all other points in the set by distance from that point and does it SUPER efficient
         init_idx = np.random.randint(label.shape[0]) if 'train' in split else label.shape[0] // 2
         crop_idx = np.argsort(np.sum(np.square(coord - coord[init_idx]), 1))[:voxel_max]
         coord, feat, label = coord[crop_idx], feat[crop_idx], label[crop_idx]
