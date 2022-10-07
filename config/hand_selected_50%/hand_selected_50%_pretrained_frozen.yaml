@@ -9,7 +9,7 @@ DATA:
   loop: 30
 
 TRAIN:
-  freeze_body: False  # Use this to freeze the body of the model nd leave the cls head only to train
+  freeze_body: True  # Use this to freeze the body of the model nd leave the cls head only to train
   arch: pointtransformer_seg_repro
   use_xyz: True
   sync_bn: False
@@ -30,7 +30,7 @@ TRAIN:
   print_freq: 1
   save_freq: 1
   save_path:
-  weight: exp/hand_selected_50%/pretrained_froze/model/s3dis_2_class_head.pth # path to initial weight (default: none)
+  weight: exp/hand_selected_50%/pretrained_frozen/model/s3dis_2_class_head.pth # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   eval_freq: 1  # How often to evaluate during training

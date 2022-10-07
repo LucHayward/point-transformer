@@ -189,7 +189,8 @@ def main_worker(gpu, ngpus_per_node, argss):
     else:
         train_transform = t.Compose([t.RandomScale([0.9, 1, 1])])
     train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
+                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop,
+                       dupe_intensity=args.fea_dim==4 and args.freeze_body)
     if main_process():
         logger.info("train_data samples: '{}'".format(len(train_data)))
     if args.distributed:
@@ -204,7 +205,7 @@ def main_worker(gpu, ngpus_per_node, argss):
     if args.evaluate:
         val_transform = None
         val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                         voxel_max=800000, transform=val_transform)
+                         voxel_max=800000, transform=val_transform, dupe_intensity=args.fea_dim==4 and args.freeze_body)
         if args.distributed:
             val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
         else:

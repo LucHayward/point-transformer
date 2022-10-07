@@ -10,9 +10,9 @@ from util.data_util import data_prepare
 
 class S3DIS(Dataset):
     def __init__(self, split='train', data_root='trainval', test_area=5, voxel_size=0.04, voxel_max=None,
-                 transform=None, shuffle_index=False, loop=1):
+                 transform=None, shuffle_index=False, loop=1, dupe_intensity=False):
         super().__init__()
-        self.split, self.voxel_size, self.transform, self.voxel_max, self.shuffle_index, self.loop = split, voxel_size, transform, voxel_max, shuffle_index, loop
+        self.split, self.voxel_size, self.transform, self.voxel_max, self.shuffle_index, self.loop, self.dupe_intensity = split, voxel_size, transform, voxel_max, shuffle_index, loop, dupe_intensity
         data_list = sorted(os.listdir(data_root))
         data_list = [item[:-4] for item in data_list if 'Area_' in item or ".npy" in item]
         if split == 'train':
@@ -34,6 +34,7 @@ class S3DIS(Dataset):
             coord, feat, label = data[:, 0:3], data[:, 3:6], data[:, 6]
         else:  # My format, xyzir, this should be generally applicable, actually.
             coord, feat, label = data[:, 0:3], data[:, 3:-1], data[:, -1]
+            if self.dupe_intensity: feat = data[:, [3, 3, 3]]
         coord, feat, label = data_prepare(coord, feat, label, self.split, self.voxel_size, self.voxel_max,
                                           self.transform, self.shuffle_index)
         return coord, feat, label
