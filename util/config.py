@@ -56,6 +56,8 @@ class CfgNode(dict):
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, super(CfgNode, self).__repr__())
 
+    def to_dict(self):
+        return super(CfgNode, self).copy()
 
 def load_cfg_from_cfg_file(file):
     cfg = {}
