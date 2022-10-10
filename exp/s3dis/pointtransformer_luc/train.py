@@ -15,6 +15,7 @@ import torch.utils.data
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
+import tqdm as tqdm
 from tensorboardX import SummaryWriter
 
 from util import config
@@ -212,7 +213,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                                                  num_workers=args.workers, pin_memory=True, sampler=val_sampler,
                                                  collate_fn=collate_fn)
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in tqdm(range(args.start_epoch, args.epochs)):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)

@@ -5,11 +5,12 @@ DATA:
   classes: 2
   fea_dim: 6
   voxel_size: 0.04 # You can leave this blank/noneIn
-  voxel_max: 30000 # this should be agood tradeoff between area and batch size
-  loop: 30
+  voxel_max: 30000 # this should be a good tradeoff between area and batch size
+  loop: 45
 
 TRAIN:
-  freeze_body: True  # Use this to freeze the body of the model nd leave the cls head only to train
+  scheduler: warmup
+  freeze_body: False  # Use this to freeze the body of the model and only leave the classification head to train
   arch: pointtransformer_seg_repro
   use_xyz: True
   sync_bn: False
@@ -19,7 +20,7 @@ TRAIN:
   batch_size: 4  # batch size for training
   batch_size_val: 2  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.5
-  epochs: 100
+  epochs: 150
   start_epoch: 0
   step_epoch: 30
   multiplier: 0.1
@@ -32,7 +33,7 @@ TRAIN:
   save_path:
   weight: s3dis_2_class_head.pth # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
-  evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
+  evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommended
   eval_freq: 1  # How often to evaluate during training
 Distributed:
   dist_url: tcp://localhost:8888

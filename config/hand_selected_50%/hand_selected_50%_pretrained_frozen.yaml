@@ -9,7 +9,6 @@ DATA:
   loop: 60
 
 TRAIN:
-  scheduler: step
   freeze_body: True  # Use this to freeze the body of the model nd leave the cls head only to train
   arch: pointtransformer_seg_repro
   use_xyz: True
