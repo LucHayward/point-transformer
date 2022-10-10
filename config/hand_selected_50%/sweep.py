@@ -1,4 +1,9 @@
+import os
+print(os.getcwd())
+
 from pathlib import Path
+os.chdir(Path(__file__).parent)
+print(os.getcwd())
 
 import wandb
 import yaml
@@ -67,7 +72,7 @@ sweep_config = {
     }
 }
 
-yaml.safe_dump(sweep_config, open("sweep.yaml", "w"))
+# yaml.safe_dump(sweep_config, open("sweep.yaml", "w"))
 
 # sweep_id = wandb.sweep(sweep_config, project="point-transformer")
 

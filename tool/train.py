@@ -83,13 +83,14 @@ def main():
     args = get_parser()
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
     # Initialise wandb
-    os.environ["WANDB_MODE"] = "dryrun"
+    # os.environ["WANDB_MODE"] = "dryrun"
     wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]))
-    if len(wandb.config) == 0:
+    if len(wandb.config.__dict__) == 0:
         wandb.config.update(args)
     else:
         from util.config import CfgNode
-        args = CfgNode(wandb.config)
+        config = wandb.config
+        args.update(config)
     define_wandb_metrics()
 
     if args.manual_seed is not None:
