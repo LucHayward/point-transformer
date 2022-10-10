@@ -19,6 +19,8 @@ import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
 from tensorboardX import SummaryWriter
 
+import wandb
+
 from util import config
 from util.s3dis import S3DIS
 from util.common_util import AverageMeter, intersectionAndUnionGPU, find_free_port
@@ -60,9 +62,30 @@ def main_process():
             args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
 
 
+def define_wandb_metrics():
+    wandb.define_metric('loss_train', summary='min')
+    wandb.define_metric('mIoU_train', summary='max')
+    wandb.define_metric('mAcc_train', summary='max')
+    wandb.define_metric('allAcc_train', summary='max')
+
+    wandb.define_metric('loss_val', summary='min')
+    wandb.define_metric('mIoU_val', summary='max')
+    wandb.define_metric('mAcc_val', summary='max')
+    wandb.define_metric('allAcc_val', summary='max')
+
+    wandb.define_metric('loss_train_batch', summary='min')
+    wandb.define_metric('mIoU_train_batch', summary='max')
+    wandb.define_metric('mAcc_train_batch', summary='max')
+    wandb.define_metric('allAcc_train_batch', summary='max')
+
+
 def main():
     args = get_parser()
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
+    # Initialise wandb
+    os.environ["WANDB_MODE"] = "dryrun"
+    wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]))
+    define_wandb_metrics()
 
     if args.manual_seed is not None:
         random.seed(args.manual_seed)
@@ -244,12 +267,18 @@ def main_worker(gpu, ngpus_per_node, argss):
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
         scheduler.step()
+        wandb.log({'lr': scheduler.get_lr()}, commit = False)
         epoch_log = epoch + 1
         if main_process():
             writer.add_scalar('loss_train', loss_train, epoch_log)
             writer.add_scalar('mIoU_train', mIoU_train, epoch_log)
             writer.add_scalar('mAcc_train', mAcc_train, epoch_log)
             writer.add_scalar('allAcc_train', allAcc_train, epoch_log)
+            wandb.log({'loss_train': loss_train,
+                       'mIoU_train': mIoU_train,
+                       'mAcc_train': mAcc_train,
+                       'allAcc_train': allAcc_train,
+                       "epoch_log": epoch_log}, commit=False)
 
         is_best = False
         if args.evaluate and (epoch_log % args.eval_freq == 0):
@@ -263,6 +292,11 @@ def main_worker(gpu, ngpus_per_node, argss):
                 writer.add_scalar('mIoU_val', mIoU_val, epoch_log)
                 writer.add_scalar('mAcc_val', mAcc_val, epoch_log)
                 writer.add_scalar('allAcc_val', allAcc_val, epoch_log)
+                wandb.log({'loss_val': loss_val,
+                           'mIoU_val': mIoU_val,
+                           'mAcc_val': mAcc_val,
+                           'allAcc_val': allAcc_val,
+                           "epoch_log": epoch_log})
                 is_best = mIoU_val > best_iou
                 best_iou = max(best_iou, mIoU_val)
 
@@ -347,6 +381,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
             writer.add_scalar('mIoU_train_batch', np.mean(intersection / (union + 1e-10)), current_iter)
             writer.add_scalar('mAcc_train_batch', np.mean(intersection / (target + 1e-10)), current_iter)
             writer.add_scalar('allAcc_train_batch', accuracy, current_iter)
+            wandb.log({'loss_train_batch': loss_meter.val,
+                       'mIoU_train_batch': np.mean(intersection / (union + 1e-10)),
+                       'mAcc_train_batch': np.mean(intersection / (target + 1e-10)),
+                       'allAcc_train_batch': accuracy,
+                       "current_iter": current_iter}, commit=False)
 
     iou_class = intersection_meter.sum / (union_meter.sum + 1e-10)
     accuracy_class = intersection_meter.sum / (target_meter.sum + 1e-10)
