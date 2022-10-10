@@ -1,27 +1,26 @@
 DATA:
-  data_name: church
-  data_root: dataset/hand_selected_50%
-  test_area: validate
-  classes: 2
+  data_name: s3dis
+  data_root: dataset/s3dis/trainval_fullarea
+  test_area: 5
+  classes: 13
   fea_dim: 6
-  voxel_size: 0.04 # You can leave this blank/noneIn
-  voxel_max: 30000 # this should be a good tradeoff between area and batch size
-  loop: 60
+  voxel_size: 0.04  # You can leave this blank/none
+  voxel_max: 80000
+  loop: 30
 
 TRAIN:
-  freeze_body: True  # Use this to freeze the body of the model nd leave the cls head only to train
   arch: pointtransformer_seg_repro
   use_xyz: True
   sync_bn: False
   ignore_label: 255
   train_gpu: [0]
   workers: 16  # data loader workers
-  batch_size: 4  # batch size for training
-  batch_size_val: 2  # batch size for validation during training, memory and speed tradeoff
+  batch_size: 16  # batch size for training
+  batch_size_val: 4  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.5
   epochs: 100
   start_epoch: 0
-  step_epoch: 30  # Unused?
+  step_epoch: 30
   multiplier: 0.1
   momentum: 0.9
   weight_decay: 0.0001
@@ -30,10 +29,10 @@ TRAIN:
   print_freq: 1
   save_freq: 1
   save_path:
-  weight: exp/hand_selected_50%/pretrained_frozen/model/s3dis_2_class_head.pth # path to initial weight (default: none)
+  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
-  evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommended
-  eval_freq: 1  # How often to evaluate during training
+  evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
+  eval_freq: 1
 Distributed:
   dist_url: tcp://localhost:8888
   dist_backend: 'nccl'

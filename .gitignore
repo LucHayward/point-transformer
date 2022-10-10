@@ -26,7 +26,6 @@ outputs/
 .vscode
 .DS_Store
 /dataset/
-/exp/s3dis/pointtransformer_luc/
 /lib/pointops/pointops.egg-info/dependency_links.txt
 /.idea/misc.xml
 /.idea/modules.xml
@@ -36,4 +35,5 @@ outputs/
 /lib/pointops/pointops.egg-info/SOURCES.txt
 /lib/pointops/pointops.egg-info/top_level.txt
 /.idea/vcs.xml
-/exp/
+*.npy
+/exp/**/result/

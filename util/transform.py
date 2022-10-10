@@ -133,8 +133,11 @@ class ChromaticJitter(object):
             feat[:, :3] = np.clip(noise + feat[:, :3], 0, 255)
         return coord, feat, label
 
+
 class IntensityJitter(object):
-    raise NotImplementedError
+    pass
+
+
 # TODO can implement some intensity augmentations
 
 class HueSaturationTranslation(object):

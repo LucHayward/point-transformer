@@ -174,13 +174,12 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     try:
         if args.freeze_body:
-            logger.info("Freezing body of model")
             for p in model.parameters():
                 p.requires_grad = False
-            for p in model.module.cls.parameters():
+            for p in model.cls.parameters():
                 p.requires_grad = True
     except AttributeError as e:
-        logger.info("args.freeze_body not found, did you mean to include it?\n", e)
+        print("args.freeze_body not found, did you mean to include it?\n", e)
 
     if args.data_name == "s3dis":
         train_transform = t.Compose(
@@ -189,8 +188,7 @@ def main_worker(gpu, ngpus_per_node, argss):
     else:
         train_transform = t.Compose([t.RandomScale([0.9, 1, 1])])
     train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop,
-                       dupe_intensity=args.fea_dim == 6 and args.data_name == "church")
+                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
     if main_process():
         logger.info("train_data samples: '{}'".format(len(train_data)))
     if args.distributed:
@@ -205,8 +203,7 @@ def main_worker(gpu, ngpus_per_node, argss):
     if args.evaluate:
         val_transform = None
         val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                         voxel_max=800000, transform=val_transform,
-                         dupe_intensity=args.fea_dim == 6 and args.data_name == "church")
+                         voxel_max=800000, transform=val_transform)
         if args.distributed:
             val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
         else:
