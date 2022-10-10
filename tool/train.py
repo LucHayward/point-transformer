@@ -1,6 +1,8 @@
 import os
 import time
 import random
+from pathlib import Path
+
 import numpy as np
 import logging
 import argparse
@@ -121,6 +123,28 @@ def main_worker(gpu, ngpus_per_node, argss):
                                 weight_decay=args.weight_decay)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs * 0.6), int(args.epochs * 0.8)],
                                          gamma=0.1)
+
+    # If we're using warmup , could also use a sequentialLR see:
+    # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.SequentialLR.html#torch.optim.lr_scheduler.SequentialLR
+    if hasattr(args, scheduler) and args.scheduler == "warmup":
+        # From Marc Katzenmaier at UZH
+        def lambda_poly_lr_schedule_warmup(max_epoch, power, warmup_length):
+            # lr schedule WarmupPlolyLR similar to deeplab
+            # Reference: https://github.com/tensorflow/models/blob/21b73d22f3ed05b650e85ac50849408dd36de32e/research/deeplab/utils/train_utils.py#L337  # noqa
+            import math
+            def schedule(epoch):
+                if epoch < warmup_length:
+                    return math.pow((1.0 - epoch / max_epoch), power) * (
+                            (epoch + 1) / float(warmup_length + 1))  # add the plus 1 so it won't start with 0
+                else:
+                    return math.pow((1.0 - epoch / max_epoch), power)
+
+            return schedule
+
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                      lr_lambda=lambda_poly_lr_schedule_warmup(args.epochs,
+                                                                                               power=0.9,
+                                                                                               warmup_length=10))
 
     if main_process():
         global logger, writer
