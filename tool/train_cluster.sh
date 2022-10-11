@@ -10,7 +10,9 @@ TEST_CODE=test.py
 
 dataset=$1
 exp_name=$2
-exp_dir=exp/${dataset}/${exp_name}
+exp_dir=exp/${dataset}/${exp_name}-$(date -I)
+echo $exp_dir
+exit 0
 model_dir=${exp_dir}/model
 result_dir=${exp_dir}/result
 config=config/${dataset}/${dataset}_${exp_name}.yaml

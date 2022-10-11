@@ -42,13 +42,13 @@ Distributed:
   world_size: 1
   rank: 0
 
-TEST:
-  test_list: dataset/s3dis/list/val5.txt
-  test_list_full: dataset/s3dis/list/val5_full.txt
-  split: val  # split in [train, val and test]
-  test_gpu: [0]
-  test_workers: 4
-  batch_size_test: 4
-  model_path:
-  save_folder:
-  names_path: data/s3dis/s3dis_names.txt
+#TEST:
+#  test_list: dataset/s3dis/list/val5.txt
+#  test_list_full: dataset/s3dis/list/val5_full.txt
+#  split: val  # split in [train, val and test]
+#  test_gpu: [0]
+#  test_workers: 4
+#  batch_size_test: 4
+#  model_path:
+#  save_folder:
+#  names_path: data/s3dis/s3dis_names.txt

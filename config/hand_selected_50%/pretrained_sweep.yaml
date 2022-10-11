@@ -1,0 +1,35 @@
+program: /home/eco02/Luc/point-transformer/train.py
+command:
+  - ${env}
+  - ./tool/train.sh
+  - hand_selected_50%
+  - pretrained_sweep
+#  - ${interpreter}
+#  - ${program}
+#  - --config=/home/eco02/Luc/point-transformer/config/hand_selected_50%/hand_selected_50%_pt.yaml
+#  - save_path
+#  - /home/eco02/Luc/point-transformer/exp/hand_selected_50%/sweep
+method: bayes
+metric:
+  goal: maximize
+  name: mIoU_val
+name: sweep
+parameters:
+  base_lr:
+    values: [ 0.3,0.5,0.7 ]
+  freeze_body:
+    values: [ True, False ]
+  power:
+    values: [ 0.3,0.6,0.9 ]
+  scheduler:
+    values: [ warmup, default ]
+  voxel_max:
+    values: [5000,10000,20000,30000,40000]
+  voxel_size:
+    values: [0.04,0.02]
+  warmup_length:
+    values: [10,25,50]
+#  weight:
+#    values: ["",]
+  weight_decay:
+    values: [0.01,0.001,0.0001]

@@ -170,8 +170,8 @@ def main_worker(gpu, ngpus_per_node, argss):
 
             return schedule
 
-        power = 0.9 if not hasattr(args,"power") else args.power
-        warmup_length = 10 if not hasattr(args,"warmup_length") else args.warmup_length
+        power = 0.9 if not hasattr(args, "power") else args.power
+        warmup_length = 10 if not hasattr(args, "warmup_length") else args.warmup_length
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                       lr_lambda=lambda_poly_lr_schedule_warmup(args.epochs,
                                                                                                power=0.9,
@@ -228,15 +228,12 @@ def main_worker(gpu, ngpus_per_node, argss):
             if main_process():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
-    try:
-        if args.freeze_body:
-            logger.info("Freezing body of model")
-            for p in model.parameters():
-                p.requires_grad = False
-            for p in model.module.cls.parameters():
-                p.requires_grad = True
-    except AttributeError as e:
-        logger.info("args.freeze_body not found, did you mean to include it?\n", e)
+    if hasattr(args, "freeze_body") and hasattr(args, "weight") and args.freeze_body and args.weight:
+        logger.info("Freezing body of model")
+        for p in model.parameters():
+            p.requires_grad = False
+        for p in model.module.cls.parameters():
+            p.requires_grad = True
 
     if args.data_name == "s3dis":
         train_transform = t.Compose(
@@ -276,7 +273,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
         scheduler.step()
-        wandb.log({'lr': scheduler.get_lr()}, commit = False)
+        wandb.log({'lr': scheduler.get_last_lr()}, commit=False)
         epoch_log = epoch + 1
         if main_process():
             writer.add_scalar('loss_train', loss_train, epoch_log)
