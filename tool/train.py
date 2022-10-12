@@ -273,7 +273,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
         scheduler.step()
-        wandb.log({'lr': scheduler.get_last_lr()}, commit=False)
+        wandb.log({'lr': scheduler.get_last_lr()[-1]}, commit=False)
         epoch_log = epoch + 1
         if main_process():
             writer.add_scalar('loss_train', loss_train, epoch_log)

@@ -3,7 +3,7 @@ command:
   - ${env}
   - ./tool/train.sh
   - hand_selected_50%
-  - pretrained_sweep
+  - untrained_sweep
 #  - ${interpreter}
 #  - ${program}
 #  - --config=/home/eco02/Luc/point-transformer/config/hand_selected_50%/hand_selected_50%_pt.yaml
@@ -17,8 +17,8 @@ name: sweep
 parameters:
   base_lr:
     values: [ 0.3,0.5,0.7 ]
-  freeze_body:
-    values: [ True, False ]
+#  freeze_body:
+#    values: [ True, False ]
   power:
     values: [ 0.3,0.6,0.9 ]
   scheduler:
@@ -29,7 +29,5 @@ parameters:
     values: [0.04,0.02]
   warmup_length:
     values: [10,25,50]
-#  weight:
-#    values: ["",]
   weight_decay:
     values: [0.01,0.001,0.0001]
