@@ -15,7 +15,7 @@ import torch.utils.data
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
-import tqdm as tqdm
+from tqdm import tqdm
 from tensorboardX import SummaryWriter
 
 from util import config

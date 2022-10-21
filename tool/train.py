@@ -17,7 +17,6 @@ import torch.utils.data
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
-from tensorboardX import SummaryWriter
 
 import wandb
 
@@ -85,12 +84,12 @@ def main():
     # Initialise wandb
     # os.environ["WANDB_MODE"] = "dryrun"
     wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]))
-    if len(wandb.config.__dict__) == 0:
-        wandb.config.update(args)
-    else:
-        from util.config import CfgNode
+    if len(wandb.config.__dict__) != 0:
         config = wandb.config
         args.update(config)
+    args.update({"batch_size": 150000//args.voxel_max})
+    wandb.config.update(args)
+    wandb.config.update({"pretrained": "freeze_body" in args.keys()})
     define_wandb_metrics()
 
     if args.manual_seed is not None:
@@ -150,38 +149,41 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
+    if hasattr(args, "optimizer"):
+        if args.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(model.parameters(), lr=args.base_lr, weight_decay=args.weight_decay)
+
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs * 0.6), int(args.epochs * 0.8)],
                                          gamma=0.1)
-
     # If we're using warmup , could also use a sequentialLR see:
     # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.SequentialLR.html#torch.optim.lr_scheduler.SequentialLR
-    if hasattr(args, "scheduler") and args.scheduler == "warmup":
-        # From Marc Katzenmaier at UZH
-        def lambda_poly_lr_schedule_warmup(max_epoch, power, warmup_length):
-            # lr schedule WarmupPlolyLR similar to deeplab
-            # Reference: https://github.com/tensorflow/models/blob/21b73d22f3ed05b650e85ac50849408dd36de32e/research/deeplab/utils/train_utils.py#L337  # noqa
-            import math
-            def schedule(epoch):
-                if epoch < warmup_length:
-                    return math.pow((1.0 - epoch / max_epoch), power) * (
-                            (epoch + 1) / float(warmup_length + 1))  # add the plus 1 so it won't start with 0
-                else:
-                    return math.pow((1.0 - epoch / max_epoch), power)
+    if hasattr(args, "scheduler"):
+        if args.scheduler == "warmup":
+            # From Marc Katzenmaier at UZH
+            def lambda_poly_lr_schedule_warmup(max_epoch, power, warmup_length):
+                # lr schedule WarmupPlolyLR similar to deeplab
+                # Reference: https://github.com/tensorflow/models/blob/21b73d22f3ed05b650e85ac50849408dd36de32e/research/deeplab/utils/train_utils.py#L337  # noqa
+                import math
+                def schedule(epoch):
+                    if epoch < warmup_length:
+                        return math.pow((1.0 - epoch / max_epoch), power) * (
+                                (epoch + 1) / float(warmup_length + 1))  # add the plus 1 so it won't start with 0
+                    else:
+                        return math.pow((1.0 - epoch / max_epoch), power)
 
-            return schedule
+                return schedule
 
-        power = 0.9 if not hasattr(args, "power") else args.power
-        warmup_length = 10 if not hasattr(args, "warmup_length") else args.warmup_length
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                      lr_lambda=lambda_poly_lr_schedule_warmup(args.epochs,
-                                                                                               power=0.9,
-                                                                                               warmup_length=10))
-        print("Using warmup from Marc")
+            power = 0.9 if not hasattr(args, "power") else args.power
+            warmup_length = 10 if not hasattr(args, "warmup_length") else args.warmup_length
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                          lr_lambda=lambda_poly_lr_schedule_warmup(args.epochs,
+                                                                                                   power=0.9,
+                                                                                                   warmup_length=10))
+            print("Using warmup from Marc")
 
     if main_process():
-        global logger, writer
+        global logger
         logger = get_logger()
-        writer = SummaryWriter(args.save_path)
         logger.info(args)
         logger.info("=> creating model ...")
         logger.info("Classes: {}".format(args.classes))
@@ -276,10 +278,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         wandb.log({'lr': scheduler.get_last_lr()[-1]}, commit=False)
         epoch_log = epoch + 1
         if main_process():
-            writer.add_scalar('loss_train', loss_train, epoch_log)
-            writer.add_scalar('mIoU_train', mIoU_train, epoch_log)
-            writer.add_scalar('mAcc_train', mAcc_train, epoch_log)
-            writer.add_scalar('allAcc_train', allAcc_train, epoch_log)
             wandb.log({'loss_train': loss_train,
                        'mIoU_train': mIoU_train,
                        'mAcc_train': mAcc_train,
@@ -294,10 +292,6 @@ def main_worker(gpu, ngpus_per_node, argss):
                 loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion)
 
             if main_process():
-                writer.add_scalar('loss_val', loss_val, epoch_log)
-                writer.add_scalar('mIoU_val', mIoU_val, epoch_log)
-                writer.add_scalar('mAcc_val', mAcc_val, epoch_log)
-                writer.add_scalar('allAcc_val', allAcc_val, epoch_log)
                 wandb.log({'loss_val': loss_val,
                            'mIoU_val': mIoU_val,
                            'mAcc_val': mAcc_val,
@@ -316,7 +310,6 @@ def main_worker(gpu, ngpus_per_node, argss):
                 shutil.copyfile(filename, args.save_path + '/model/model_best.pth')
 
     if main_process():
-        writer.close()
         logger.info('==>Training done!\nBest Iou: %.3f' % (best_iou))
 
 
@@ -383,10 +376,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                           loss_meter=loss_meter,
                                                           accuracy=accuracy))
         if main_process():
-            writer.add_scalar('loss_train_batch', loss_meter.val, current_iter)
-            writer.add_scalar('mIoU_train_batch', np.mean(intersection / (union + 1e-10)), current_iter)
-            writer.add_scalar('mAcc_train_batch', np.mean(intersection / (target + 1e-10)), current_iter)
-            writer.add_scalar('allAcc_train_batch', accuracy, current_iter)
             wandb.log({'loss_train_batch': loss_meter.val,
                        'mIoU_train_batch': np.mean(intersection / (union + 1e-10)),
                        'mAcc_train_batch': np.mean(intersection / (target + 1e-10)),
