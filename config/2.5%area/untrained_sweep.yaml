@@ -1,0 +1,44 @@
+program: train.py
+command:
+  - ${env}
+  - ./tool/train.sh
+  - 2.5%area
+  - untrained_sweep
+method: bayes
+metric:
+  goal: maximize
+  name: mIoU_val.max
+parameters:
+  base_lr:
+    distribution: uniform
+    max: 0.9
+    min: 0.15
+  optimizer:
+    distribution: categorical
+    values:
+      - AdamW
+      - default
+  power:
+    distribution: uniform
+    max: 0.9
+    min: 0.1
+  scheduler:
+    distribution: categorical
+    values:
+      - warmup
+      - default
+  voxel_max:
+    distribution: int_uniform
+    max: 140000
+    min: 1000
+  voxel_size:
+    value: 0.02
+  warmup_length:
+    distribution: int_uniform
+    max: 100
+    min: 5
+  weight_decay:
+    distribution: log_uniform
+    max: 0.02
+    min: 5e-05
+

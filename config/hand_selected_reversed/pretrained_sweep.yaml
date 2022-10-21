@@ -1,0 +1,29 @@
+program: train.py
+command:
+  - ${env}
+  - ./tool/train.sh
+  - hand_selected_reversed
+  - pretrained_sweep
+method: bayes
+metric:
+  goal: maximize
+  name: mIoU_val.max
+parameters:
+  base_lr:
+    values: [ 0.3,0.5,0.7 ]
+  freeze_body:
+    values: [ True, False ]
+  power:
+    values: [ 0.3,0.6,0.9 ]
+  scheduler:
+    values: [ warmup, default ]
+  voxel_max:
+    values: [5000,10000,20000,30000,40000]
+  voxel_size:
+    values: [0.04,0.02]
+  warmup_length:
+    values: [10,25,50]
+#  weight:
+#    values: ["",]
+  weight_decay:
+    values: [0.01,0.001,0.0001]

@@ -11,8 +11,8 @@ else
     echo "[PT INFO] Done !"
 
     echo "[PT INFO] Dependecies..."
-    conda install pytorch=1.9.0 torchvision cudatoolkit=11.1 -c pytorch -c nvidia -y
-    conda install -c anaconda h5py pyyaml -y
+    conda install pytorch==1.9.0 torchvision==0.10.0 cudatoolkit=11.3 -c pytorch -c conda-forge -y
+    conda install h5py pyyaml -y
     conda install -c conda-forge sharedarray tensorboardx -y
     echo "[PT INFO] Done !"
 

@@ -1,0 +1,35 @@
+program: train.py
+command:
+  - ${env}
+  - ./tool/train.sh
+  - 2.5%area
+  - pretrained_sweep
+method: bayes
+metric:
+  goal: maximize
+  name: mIoU_val.max
+parameters:
+  base_lr:
+    values: [ 0.1, 0.2, 0.3,0.4,0.5,0.6,0.7,0.8,0.9 ]
+  optimizer:
+    distribution: categorical
+    values:
+      - AdamW
+      - default
+  power:
+    values: [ 0.1, 0.2, 0.3,0.4,0.5,0.6,0.7,0.8,0.9 ]
+  scheduler:
+    distribution: categorical
+    values:
+      - warmup
+      - default
+  voxel_max:
+    values: [ 1000,2000, 3000,5000,10000,25000,50000,75000,100000,120000,140000 ]
+  voxel_size:
+    value: 0.02
+  warmup_length:
+    values: [ 5,10,25,50,75,100 ]
+  weight_decay:
+    distribution: log_uniform
+    max: 0.02
+    min: 5e-05
