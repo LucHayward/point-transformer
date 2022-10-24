@@ -19,6 +19,7 @@ import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
 
 import wandb
+from tqdm import tqdm
 
 from util import config
 from util.s3dis import S3DIS
@@ -87,7 +88,8 @@ def main():
     if len(wandb.config.__dict__) != 0:
         config = wandb.config
         args.update(config)
-    args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
+    if args.data_name != "s3dis":
+        args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
     wandb.config.update(args)
     wandb.config.update({"pretrained": "freeze_body" in args.keys()})
     define_wandb_metrics()
@@ -271,7 +273,7 @@ def main_worker(gpu, ngpus_per_node, argss):
         train_transform = t.Compose([t.RandomScale([0.9, 1, 1])])
     train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
                        voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop,
-                       dupe_intensity= (args.fea_dim == 6 and args.data_name == "church"), )
+                       dupe_intensity=(args.fea_dim == 6 and args.data_name == "church"), )
     if main_process():
         logger.info("train_data samples: '{}'".format(len(train_data)))
     if args.distributed:
@@ -296,7 +298,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                                                  num_workers=args.workers, pin_memory=True, sampler=val_sampler,
                                                  collate_fn=collate_fn)
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in tqdm(range(args.start_epoch, args.epochs)):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
@@ -351,7 +353,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
     end = time.time()
     max_iter = args.epochs * len(train_loader)
-    for i, (coord, feat, target, offset) in enumerate(train_loader):  # (n, 3), (n, c), (n), (b)
+    for i, (coord, feat, target, offset) in enumerate(tqdm(train_loader)):  # (n, 3), (n, c), (n), (b)
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)
@@ -373,7 +375,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             n = count.item()
             loss /= n
         if hasattr(args, "save_train_output"):
-            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"E{epoch+1}I{i+1}.pt")
+            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"E{epoch + 1}I{i + 1}.pt")
         intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
         if args.multiprocessing_distributed:
             dist.all_reduce(intersection), dist.all_reduce(union), dist.all_reduce(target)
