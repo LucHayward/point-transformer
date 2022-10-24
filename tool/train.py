@@ -87,7 +87,7 @@ def main():
     if len(wandb.config.__dict__) != 0:
         config = wandb.config
         args.update(config)
-    args.update({"batch_size": 150000//args.voxel_max})
+    args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
     wandb.config.update(args)
     wandb.config.update({"pretrained": "freeze_body" in args.keys()})
     define_wandb_metrics()
@@ -147,11 +147,26 @@ def main_worker(gpu, ngpus_per_node, argss):
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label).cuda()
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum,
+    optim_params = model.parameters()
+    if hasattr(args, "slow_body") and args.slow_body:
+        optim_params = [
+            {'params': model.enc1.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc2.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc3.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc4.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc5.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec5.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec4.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec3.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec2.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec1.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.cls.parameters()},
+        ]
+    optimizer = torch.optim.SGD(optim_params, lr=args.base_lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     if hasattr(args, "optimizer"):
         if args.optimizer == "AdamW":
-            optimizer = torch.optim.AdamW(model.parameters(), lr=args.base_lr, weight_decay=args.weight_decay)
+            optimizer = torch.optim.AdamW(optim_params, lr=args.base_lr, weight_decay=args.weight_decay)
 
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs * 0.6), int(args.epochs * 0.8)],
                                          gamma=0.1)
@@ -236,6 +251,17 @@ def main_worker(gpu, ngpus_per_node, argss):
             p.requires_grad = False
         for p in model.module.cls.parameters():
             p.requires_grad = True
+        # if hasattr(args, "freeze_enc") and args.freeze_enc:
+        #     for p in model.module.dec5.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec4.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec3.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec2.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec1.parameters():
+        #         p.requires_grad = True
 
     if args.data_name == "s3dis":
         train_transform = t.Compose(
@@ -289,7 +315,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             if args.data_name == 'shapenet':
                 raise NotImplementedError()
             else:
-                loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion)
+                loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion, epoch)
 
             if main_process():
                 wandb.log({'loss_val': loss_val,
@@ -308,6 +334,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             if is_best:
                 logger.info('Best validation mIoU updated to: {:.4f}'.format(best_iou))
                 shutil.copyfile(filename, args.save_path + '/model/model_best.pth')
+                wandb.save(args.save_path + '/model/model_best.pth')
 
     if main_process():
         logger.info('==>Training done!\nBest Iou: %.3f' % (best_iou))
@@ -396,7 +423,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     return loss_meter.avg, mIoU, mAcc, allAcc
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, epoch=0):
     if main_process():
         logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
     batch_time = AverageMeter()
@@ -428,7 +455,7 @@ def validate(val_loader, model, criterion):
             loss /= n
 
         if hasattr(args, "save_val_output"):
-            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"VI{i+1}.pt")
+            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"VI{epoch + 1}.pt")
 
         intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
         if args.multiprocessing_distributed:
