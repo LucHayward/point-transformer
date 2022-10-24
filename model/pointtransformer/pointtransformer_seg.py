@@ -122,7 +122,7 @@ class PointTransformerBlock(nn.Module):
 
 
 class PointTransformerSeg(nn.Module):
-    def __init__(self, block, blocks, c=6, k=13):
+    def __init__(self, block, blocks, c=6, k=13):  # blocks [2, 3, 4, 6, 3]
         super().__init__()
         self.c = c
         self.in_planes, planes = c, [32, 64, 128, 256, 512]
