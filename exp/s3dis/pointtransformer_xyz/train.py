@@ -87,7 +87,7 @@ def main():
     if len(wandb.config.__dict__) != 0:
         config = wandb.config
         args.update(config)
-    args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
+    # args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
     wandb.config.update(args)
     wandb.config.update({"pretrained": "freeze_body" in args.keys()})
     define_wandb_metrics()

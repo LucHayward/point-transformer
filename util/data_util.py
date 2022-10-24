@@ -19,8 +19,9 @@ def collate_fn(batch):
     offset, count = [], 0
     for item in coord:
         count += item.shape[0]
+        if count >= 150_000: break # 150k is the max number of points in a batch for a 3080 10GB
         offset.append(count)
-    return torch.cat(coord), torch.cat(feat), torch.cat(label), torch.IntTensor(offset)
+    return torch.cat(coord[:len(offset)]), torch.cat(feat[:len(offset)]), torch.cat(label[:len(offset)]), torch.IntTensor(offset)
 
 
 def data_prepare(coord, feat, label, split='train', voxel_size=0.04, voxel_max=None, transform=None, shuffle_index=False):
