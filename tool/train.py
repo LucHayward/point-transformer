@@ -353,7 +353,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
     end = time.time()
     max_iter = args.epochs * len(train_loader)
+    max_pts = 0
     for i, (coord, feat, target, offset) in enumerate(tqdm(train_loader)):  # (n, 3), (n, c), (n), (b)
+        if max_pts < coord.shape[0]:
+            max_pts = coord.shape[0]
+            logger.info(f'{max_pts=}')
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)
@@ -437,7 +441,11 @@ def validate(val_loader, model, criterion, epoch=0):
 
     model.eval()
     end = time.time()
-    for i, (coord, feat, target, offset) in enumerate(val_loader):
+    max_pts = 0
+    for i, (coord, feat, target, offset) in enumerate(tqdm(val_loader)):
+        if max_pts < coord.shape[0]:
+            max_pts = coord.shape[0]
+            logger.info(f'{max_pts=}')
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)

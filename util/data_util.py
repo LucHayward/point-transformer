@@ -19,7 +19,7 @@ def collate_fn(batch):
     offset, count = [], 0
     for item in coord:
         count += item.shape[0]
-        if count > 160_000: break # 150k is the max number of points in a batch for a 3080 10GB
+        # if count > 160_000: break # 150k is the max number of points in a batch for a 3080 10GB
         offset.append(count)
     return torch.cat(coord[:len(offset)]), torch.cat(feat[:len(offset)]), torch.cat(label[:len(offset)]), torch.IntTensor(offset)
 
@@ -46,8 +46,8 @@ def data_prepare(coord, feat, label, split='train', voxel_size=0.04, voxel_max=N
     coord_min = np.min(coord, 0)
     coord -= coord_min
     coord = torch.FloatTensor(coord)
-    if np.mean(feat[:,:3]) > 1:
-         feat /= 255.
+    if feat.shape[1] != 0 and np.mean(feat[:, :3]) > 1:
+        feat /= 255.
     feat = torch.FloatTensor(feat)
     label = torch.LongTensor(label)
     return coord, feat, label
