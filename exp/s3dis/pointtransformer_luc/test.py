@@ -194,9 +194,9 @@ def test(model, criterion, names):
                     'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
                     'Accuracy {accuracy:.4f}.'.format(idx + 1, len(data_list), label.size, batch_time=batch_time,
                                                       accuracy=accuracy))
-        pred_save.append(pred);
+        pred_save.append(pred)
         label_save.append(label)
-        np.save(pred_save_path, pred);
+        np.save(pred_save_path, pred)
         np.save(label_save_path, label)
 
     with open(os.path.join(args.save_folder, "pred.pickle"), 'wb') as handle:

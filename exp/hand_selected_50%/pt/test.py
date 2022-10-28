@@ -80,9 +80,9 @@ def main():
 
 
 def data_prepare():
-    if args.data_name == 's3dis':
+    if args.data_name in {'s3dis', 'church'}:
         data_list = sorted(os.listdir(args.data_root))
-        data_list = [item[:-4] for item in data_list if 'Area_{}'.format(args.test_area) in item]
+        data_list = [item[:-4] for item in data_list if 'Area_{}'.format(args.test_area) in item or 'val' in item]
     else:
         raise Exception('dataset not supported yet'.format(args.data_name))
     print("Totally {} samples in val set.".format(len(data_list)))
@@ -95,7 +95,7 @@ def data_load(data_name):
     coord, feat, label = data[:, :3], data[:, 3:6], data[:, 6]
 
     idx_data = []
-    if args.voxel_size:
+    if args.voxel_size:  # You don't HAVE TO use voxel size
         coord_min = np.min(coord, 0)
         coord -= coord_min
         idx_sort, count = voxelize(coord, args.voxel_size, mode=1)
@@ -126,7 +126,7 @@ def test(model, criterion, names):
 
     check_makedirs(args.save_folder)
     pred_save, label_save = [], []
-    data_list = data_prepare()
+    data_list = data_prepare()  # Names of the test area
     for idx, item in enumerate(data_list):
         end = time.time()
         pred_save_path = os.path.join(args.save_folder, '{}_{}_pred.npy'.format(item, args.epoch))
@@ -135,7 +135,7 @@ def test(model, criterion, names):
             logger.info('{}/{}: {}, loaded pred and label.'.format(idx + 1, len(data_list), item))
             pred, label = np.load(pred_save_path), np.load(label_save_path)
         else:
-            coord, feat, label, idx_data = data_load(item)
+            coord, feat, label, idx_data = data_load(item)  # if args.voxel_size then it will subsample the points
             pred = torch.zeros((label.size, args.classes)).cuda()
             idx_size = len(idx_data)
             idx_list, coord_list, feat_list, offset_list = [], [], [], []
@@ -194,9 +194,9 @@ def test(model, criterion, names):
                     'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
                     'Accuracy {accuracy:.4f}.'.format(idx + 1, len(data_list), label.size, batch_time=batch_time,
                                                       accuracy=accuracy))
-        pred_save.append(pred);
+        pred_save.append(pred)
         label_save.append(label)
-        np.save(pred_save_path, pred);
+        np.save(pred_save_path, pred)
         np.save(label_save_path, label)
 
     with open(os.path.join(args.save_folder, "pred.pickle"), 'wb') as handle:

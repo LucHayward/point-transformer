@@ -1,0 +1,24 @@
+wandb: Currently logged in as: luchayward. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.13.4
+wandb: Run data is saved locally in /home/eco02/Luc/point-transformer/wandb/run-20221027_150032-3ef4dyk3
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run ('s3dis', 'pointtransformer_luc')
+wandb: ⭐️ View project at https://wandb.ai/luchayward/point-transformer
+wandb: 🚀 View run at https://wandb.ai/luchayward/point-transformer/runs/3ef4dyk3
+Exception in thread MsgRouterThr:
+Traceback (most recent call last):
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/threading.py", line 980, in _bootstrap_inner
+    self.run()
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/threading.py", line 917, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/site-packages/wandb/sdk/interface/router.py", line 70, in message_loop
+    msg = self._read_message()
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/site-packages/wandb/sdk/interface/router_queue.py", line 36, in _read_message
+    msg = self._response_queue.get(timeout=1)
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/multiprocessing/queues.py", line 117, in get
+    res = self._recv_bytes()
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/multiprocessing/connection.py", line 217, in recv_bytes
+    self._check_closed()
+  File "/home/eco02/anaconda3/envs/pt/lib/python3.9/multiprocessing/connection.py", line 141, in _check_closed
+    raise OSError("handle is closed")
+OSError: handle is closed

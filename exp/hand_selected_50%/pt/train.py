@@ -1,6 +1,8 @@
 import os
 import time
 import random
+from pathlib import Path
+
 import numpy as np
 import logging
 import argparse
@@ -15,7 +17,9 @@ import torch.utils.data
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch.optim.lr_scheduler as lr_scheduler
-from tensorboardX import SummaryWriter
+
+import wandb
+from tqdm import tqdm
 
 from util import config
 from util.s3dis import S3DIS
@@ -55,12 +59,40 @@ def worker_init_fn(worker_id):
 
 def main_process():
     return not args.multiprocessing_distributed or (
-                args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
+            args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
+
+
+def define_wandb_metrics():
+    wandb.define_metric('loss_train', summary='min')
+    wandb.define_metric('mIoU_train', summary='max')
+    wandb.define_metric('mAcc_train', summary='max')
+    wandb.define_metric('allAcc_train', summary='max')
+
+    wandb.define_metric('loss_val', summary='min')
+    wandb.define_metric('mIoU_val', summary='max')
+    wandb.define_metric('mAcc_val', summary='max')
+    wandb.define_metric('allAcc_val', summary='max')
+
+    wandb.define_metric('loss_train_batch', summary='min')
+    wandb.define_metric('mIoU_train_batch', summary='max')
+    wandb.define_metric('mAcc_train_batch', summary='max')
+    wandb.define_metric('allAcc_train_batch', summary='max')
 
 
 def main():
     args = get_parser()
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
+    # Initialise wandb
+    # os.environ["WANDB_MODE"] = "dryrun"
+    wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]))
+    if len(wandb.config.__dict__) != 0:
+        config = wandb.config
+        args.update(config)
+    if args.data_name != "s3dis":
+        args.update({"batch_size": 150000 // args.voxel_max})  # 150000 == maximum trainable points on RTX3080 12GB
+    wandb.config.update(args)
+    wandb.config.update({"pretrained": "freeze_body" in args.keys()})
+    define_wandb_metrics()
 
     if args.manual_seed is not None:
         random.seed(args.manual_seed)
@@ -117,15 +149,58 @@ def main_worker(gpu, ngpus_per_node, argss):
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label).cuda()
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum,
+    optim_params = model.parameters()
+    if hasattr(args, "slow_body") and args.slow_body:
+        optim_params = [
+            {'params': model.enc1.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc2.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc3.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc4.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.enc5.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec5.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec4.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec3.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec2.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.dec1.parameters(), 'lr': args.base_lr * 0.1},
+            {'params': model.cls.parameters()},
+        ]
+    optimizer = torch.optim.SGD(optim_params, lr=args.base_lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
+    if hasattr(args, "optimizer"):
+        if args.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(optim_params, lr=args.base_lr, weight_decay=args.weight_decay)
+
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs * 0.6), int(args.epochs * 0.8)],
                                          gamma=0.1)
+    # If we're using warmup , could also use a sequentialLR see:
+    # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.SequentialLR.html#torch.optim.lr_scheduler.SequentialLR
+    if hasattr(args, "scheduler"):
+        if args.scheduler == "warmup":
+            # From Marc Katzenmaier at UZH
+            def lambda_poly_lr_schedule_warmup(max_epoch, power, warmup_length):
+                # lr schedule WarmupPlolyLR similar to deeplab
+                # Reference: https://github.com/tensorflow/models/blob/21b73d22f3ed05b650e85ac50849408dd36de32e/research/deeplab/utils/train_utils.py#L337  # noqa
+                import math
+                def schedule(epoch):
+                    if epoch < warmup_length:
+                        return math.pow((1.0 - epoch / max_epoch), power) * (
+                                (epoch + 1) / float(warmup_length + 1))  # add the plus 1 so it won't start with 0
+                    else:
+                        return math.pow((1.0 - epoch / max_epoch), power)
+
+                return schedule
+
+            power = 0.9 if not hasattr(args, "power") else args.power
+            warmup_length = 10 if not hasattr(args, "warmup_length") else args.warmup_length
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                          lr_lambda=lambda_poly_lr_schedule_warmup(args.epochs,
+                                                                                                   power=0.9,
+                                                                                                   warmup_length=10))
+            print("Using warmup from Marc")
 
     if main_process():
-        global logger, writer
+        global logger
         logger = get_logger()
-        writer = SummaryWriter(args.save_path)
         logger.info(args)
         logger.info("=> creating model ...")
         logger.info("Classes: {}".format(args.classes))
@@ -172,14 +247,33 @@ def main_worker(gpu, ngpus_per_node, argss):
             if main_process():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
-    if args.data_name == "s3dis":
+    if hasattr(args, "freeze_body") and hasattr(args, "weight") and args.freeze_body and args.weight:
+        logger.info("Freezing body of model")
+        for p in model.parameters():
+            p.requires_grad = False
+        for p in model.module.cls.parameters():
+            p.requires_grad = True
+        # if hasattr(args, "freeze_enc") and args.freeze_enc:
+        #     for p in model.module.dec5.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec4.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec3.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec2.parameters():
+        #         p.requires_grad = True
+        #     for p in model.module.dec1.parameters():
+        #         p.requires_grad = True
+
+    if args.data_name == "s3dis" and args.fea_dim == 6:
         train_transform = t.Compose(
             [t.RandomScale([0.9, 1.1]), t.ChromaticAutoContrast(), t.ChromaticTranslation(), t.ChromaticJitter(),
              t.HueSaturationTranslation()])
     else:
         train_transform = t.Compose([t.RandomScale([0.9, 1, 1])])
     train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
+                       voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop,
+                       dupe_intensity=(args.fea_dim == 6 and args.data_name == "church"), )
     if main_process():
         logger.info("train_data samples: '{}'".format(len(train_data)))
     if args.distributed:
@@ -187,14 +281,15 @@ def main_worker(gpu, ngpus_per_node, argss):
     else:
         train_sampler = None
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=(train_sampler is None),
-
+                                               num_workers=args.workers, pin_memory=True, sampler=train_sampler,
                                                drop_last=True, collate_fn=collate_fn)
 
     val_loader = None
     if args.evaluate:
         val_transform = None
         val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size,
-                         voxel_max=800000, transform=val_transform)
+                         voxel_max=800000, transform=val_transform,
+                         dupe_intensity=args.fea_dim == 6 and args.data_name == "church")
         if args.distributed:
             val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
         else:
@@ -203,30 +298,33 @@ def main_worker(gpu, ngpus_per_node, argss):
                                                  num_workers=args.workers, pin_memory=True, sampler=val_sampler,
                                                  collate_fn=collate_fn)
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in tqdm(range(args.start_epoch, args.epochs)):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
         scheduler.step()
+        wandb.log({'lr': scheduler.get_last_lr()[-1]}, commit=False)
         epoch_log = epoch + 1
         if main_process():
-            writer.add_scalar('loss_train', loss_train, epoch_log)
-            writer.add_scalar('mIoU_train', mIoU_train, epoch_log)
-            writer.add_scalar('mAcc_train', mAcc_train, epoch_log)
-            writer.add_scalar('allAcc_train', allAcc_train, epoch_log)
+            wandb.log({'loss_train': loss_train,
+                       'mIoU_train': mIoU_train,
+                       'mAcc_train': mAcc_train,
+                       'allAcc_train': allAcc_train,
+                       "epoch_log": epoch_log}, commit=False)
 
         is_best = False
         if args.evaluate and (epoch_log % args.eval_freq == 0):
             if args.data_name == 'shapenet':
                 raise NotImplementedError()
             else:
-                loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion)
+                loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion, epoch)
 
             if main_process():
-                writer.add_scalar('loss_val', loss_val, epoch_log)
-                writer.add_scalar('mIoU_val', mIoU_val, epoch_log)
-                writer.add_scalar('mAcc_val', mAcc_val, epoch_log)
-                writer.add_scalar('allAcc_val', allAcc_val, epoch_log)
+                wandb.log({'loss_val': loss_val,
+                           'mIoU_val': mIoU_val,
+                           'mAcc_val': mAcc_val,
+                           'allAcc_val': allAcc_val,
+                           "epoch_log": epoch_log})
                 is_best = mIoU_val > best_iou
                 best_iou = max(best_iou, mIoU_val)
 
@@ -238,9 +336,9 @@ def main_worker(gpu, ngpus_per_node, argss):
             if is_best:
                 logger.info('Best validation mIoU updated to: {:.4f}'.format(best_iou))
                 shutil.copyfile(filename, args.save_path + '/model/model_best.pth')
+                wandb.save(args.save_path + '/model/model_best.pth')
 
     if main_process():
-        writer.close()
         logger.info('==>Training done!\nBest Iou: %.3f' % (best_iou))
 
 
@@ -255,10 +353,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
     end = time.time()
     max_iter = args.epochs * len(train_loader)
-    for i, (coord, feat, target, offset) in enumerate(train_loader):  # (n, 3), (n, c), (n), (b)
+    max_pts = 0
+    for i, (coord, feat, target, offset) in enumerate(tqdm(train_loader)):  # (n, 3), (n, c), (n), (b)
+        if max_pts < coord.shape[0]:
+            max_pts = coord.shape[0]
+            logger.info(f'{max_pts=}')
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)
+        # Batches are concatenated together (no batch dim) and offset is the indices of the batchs
         output = model([coord, feat, offset])
         if target.shape[-1] == 1:
             target = target[:, 0]  # for cls
@@ -275,6 +378,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
             dist.all_reduce(loss), dist.all_reduce(count)
             n = count.item()
             loss /= n
+        if hasattr(args, "save_train_output"):
+            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"E{epoch + 1}I{i + 1}.pt")
         intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
         if args.multiprocessing_distributed:
             dist.all_reduce(intersection), dist.all_reduce(union), dist.all_reduce(target)
@@ -306,10 +411,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                           loss_meter=loss_meter,
                                                           accuracy=accuracy))
         if main_process():
-            writer.add_scalar('loss_train_batch', loss_meter.val, current_iter)
-            writer.add_scalar('mIoU_train_batch', np.mean(intersection / (union + 1e-10)), current_iter)
-            writer.add_scalar('mAcc_train_batch', np.mean(intersection / (target + 1e-10)), current_iter)
-            writer.add_scalar('allAcc_train_batch', accuracy, current_iter)
+            wandb.log({'loss_train_batch': loss_meter.val,
+                       'mIoU_train_batch': np.mean(intersection / (union + 1e-10)),
+                       'mAcc_train_batch': np.mean(intersection / (target + 1e-10)),
+                       'allAcc_train_batch': accuracy,
+                       "current_iter": current_iter}, commit=False)
 
     iou_class = intersection_meter.sum / (union_meter.sum + 1e-10)
     accuracy_class = intersection_meter.sum / (target_meter.sum + 1e-10)
@@ -323,7 +429,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     return loss_meter.avg, mIoU, mAcc, allAcc
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, epoch=0):
     if main_process():
         logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
     batch_time = AverageMeter()
@@ -335,7 +441,11 @@ def validate(val_loader, model, criterion):
 
     model.eval()
     end = time.time()
-    for i, (coord, feat, target, offset) in enumerate(val_loader):
+    max_pts = 0
+    for i, (coord, feat, target, offset) in enumerate(tqdm(val_loader)):
+        if max_pts < coord.shape[0]:
+            max_pts = coord.shape[0]
+            logger.info(f'{max_pts=}')
         data_time.update(time.time() - end)
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(
             non_blocking=True), offset.cuda(non_blocking=True)
@@ -353,6 +463,9 @@ def validate(val_loader, model, criterion):
             dist.all_reduce(loss), dist.all_reduce(count)
             n = count.item()
             loss /= n
+
+        if hasattr(args, "save_val_output"):
+            torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"VI{epoch + 1}.pt")
 
         intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
         if args.multiprocessing_distributed:

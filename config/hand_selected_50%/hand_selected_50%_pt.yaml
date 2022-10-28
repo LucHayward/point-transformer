@@ -4,7 +4,7 @@ DATA:
   test_area: validate
   classes: 2
   fea_dim: 4
-  voxel_size: 0.04 # You can leave this blank/noneIn
+  voxel_size: 0.02 # You can leave this blank/noneIn
   voxel_max: 80000
   loop: 30
 

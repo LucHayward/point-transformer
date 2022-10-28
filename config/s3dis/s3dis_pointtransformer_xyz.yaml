@@ -5,7 +5,7 @@ DATA:
   classes: 13
   fea_dim: 3
   voxel_size: 0.02 # You can leave this blank/none
-  voxel_max: 80000
+  voxel_max: 40000
   loop: 30
 
 TRAIN:
@@ -15,9 +15,9 @@ TRAIN:
   ignore_label: 255
   train_gpu: [ 0 ]
   workers: 16  # data loader workers
-  batch_size: 2  # batch size for training
+  batch_size: 4  # batch size for training
   batch_size_val: 1  # batch size for validation during training, memory and speed tradeoff
-  base_lr: 0.5
+  base_lr: 0.05
   epochs: 100
   start_epoch: 0
   step_epoch: 30
@@ -30,7 +30,7 @@ TRAIN:
   save_freq: 1
   save_path:
   weight:  # path to initial weight (default: none)
-  resume: "exp/s3dis/pointtransformer_xyz/model/model_last.pth" # path to latest checkpoint (default: none)
+  resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   eval_freq: 1
 Distributed:

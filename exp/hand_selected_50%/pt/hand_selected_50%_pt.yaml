@@ -4,11 +4,12 @@ DATA:
   test_area: validate
   classes: 2
   fea_dim: 4
-  voxel_size: 0.04
+  voxel_size: 0.02 # You can leave this blank/noneIn
   voxel_max: 80000
   loop: 30
 
 TRAIN:
+  freeze_body: False  # Use this to freeze the body of the model nd leave the cls head only to train
   arch: pointtransformer_seg_repro
   use_xyz: True
   sync_bn: False
@@ -40,13 +41,13 @@ Distributed:
   world_size: 1
   rank: 0
 
-TEST:
-  test_list: dataset/s3dis/list/val5.txt
-  test_list_full: dataset/s3dis/list/val5_full.txt
-  split: val  # split in [train, val and test]
-  test_gpu: [0]
-  test_workers: 4
-  batch_size_test: 4
-  model_path:
-  save_folder:
-  names_path: data/s3dis/s3dis_names.txt
+#TEST:
+#  test_list: dataset/s3dis/list/val5.txt
+#  test_list_full: dataset/s3dis/list/val5_full.txt
+#  split: val  # split in [train, val and test]
+#  test_gpu: [0]
+#  test_workers: 4
+#  batch_size_test: 4
+#  model_path:
+#  save_folder:
+#  names_path: data/s3dis/s3dis_names.txt

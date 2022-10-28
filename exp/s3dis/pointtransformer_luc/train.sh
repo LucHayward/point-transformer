@@ -22,7 +22,7 @@ cp tool/train.sh tool/${TRAIN_CODE} ${config} tool/test.sh tool/${TEST_CODE} ${e
 
 
 now=$(date +"%Y%m%d_%H%M%S")
-echo $( ${exp_dir}/${TRAIN_CODE} \
+$PYTHON ${exp_dir}/${TRAIN_CODE} \
   --config=${config} \
   save_path ${exp_dir} \
-  2>&1 | tee ${exp_dir}/train-$now.log)
+  2>&1 | tee ${exp_dir}/train-$now.log
