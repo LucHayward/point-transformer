@@ -1,0 +1,1 @@
+python exp/Montelupo_2.5%/xyz/train.py --config=config/Montelupo_2.5%/Montelupo_2.5%_xyz.yaml data_root dataset/Montelupo/2.5% save_path exp/Montelupo_2.5%/xyz

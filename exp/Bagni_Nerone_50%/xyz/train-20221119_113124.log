@@ -1,0 +1,1 @@
+python exp/Bagni_Nerone_50%/xyz/train.py --config=config/Bagni_Nerone_50%/Bagni_Nerone_50%_xyz.yaml data_root dataset/Bagni_Nerone/50% save_path exp/Bagni_Nerone_50%/xyz

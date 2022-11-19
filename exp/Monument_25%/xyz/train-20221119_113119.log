@@ -1,0 +1,1 @@
+python exp/Monument_25%/xyz/train.py --config=config/Monument_25%/Monument_25%_xyz.yaml data_root dataset/Monument/25% save_path exp/Monument_25%/xyz

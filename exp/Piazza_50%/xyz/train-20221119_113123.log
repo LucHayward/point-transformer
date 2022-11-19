@@ -1,0 +1,1 @@
+python exp/Piazza_50%/xyz/train.py --config=config/Piazza_50%/Piazza_50%_xyz.yaml data_root dataset/Piazza/50% save_path exp/Piazza_50%/xyz

@@ -298,7 +298,6 @@ def main_worker(gpu, ngpus_per_node, argss):
                                                  num_workers=args.workers, pin_memory=True, sampler=val_sampler,
                                                  collate_fn=collate_fn)
 
-    best_train_mIoU = 0
     for epoch in tqdm(range(args.start_epoch, args.epochs)):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -333,20 +332,11 @@ def main_worker(gpu, ngpus_per_node, argss):
             filename = args.save_path + '/model/model_last.pth'
             logger.info('Saving checkpoint to: ' + filename)
             torch.save({'epoch': epoch_log, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                        'scheduler': scheduler.state_dict(), 'best_iou': best_iou, 'is_best': is_best, 'best_train_iou': best_train_mIoU}, filename)
-            if mIoU_train > best_train_mIoU: # best training model
-                best_train_mIoU = mIoU_train
-                logger.info('Best training mIoU updated to: {:.4f}'.format(best_train_mIoU))
-                shutil.copyfile(filename, args.save_path + '/model/model_best_train.pth')
-                wandb.save(args.save_path + '/model/model_best_train.pth')
-                if epoch_log <= 51:  # best training model up to the point that we think we should have stopped (50 epochs)
-                    shutil.copyfile(filename, args.save_path + '/model/model_best_train50.pth')
-                    wandb.save(args.save_path + '/model/model_best_train.pth')
-            if is_best: # best validation model
+                        'scheduler': scheduler.state_dict(), 'best_iou': best_iou, 'is_best': is_best}, filename)
+            if is_best:
                 logger.info('Best validation mIoU updated to: {:.4f}'.format(best_iou))
                 shutil.copyfile(filename, args.save_path + '/model/model_best.pth')
                 wandb.save(args.save_path + '/model/model_best.pth')
-
 
     if main_process():
         logger.info('==>Training done!\nBest Iou: %.3f' % (best_iou))
