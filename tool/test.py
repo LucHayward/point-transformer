@@ -92,7 +92,7 @@ def data_prepare():
 def data_load(data_name):
     data_path = os.path.join(args.data_root, data_name + '.npy')
     data = np.load(data_path)  # xyzrgbl, N*7
-    coord, feat, label = data[:, :3], data[:, 3:6], data[:, 6]
+    coord, feat, label = data[:, :3], data[:, 3:-1], data[:, -1]
 
     idx_data = []
     if args.voxel_size:  # You don't HAVE TO use voxel size
