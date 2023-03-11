@@ -20,18 +20,24 @@ mkdir -p ${result_dir}/last
 mkdir -p ${result_dir}/best
 cp tool/train.sh tool/${TRAIN_CODE} ${config} tool/test.sh tool/${TEST_CODE} ${exp_dir}
 
-
+now=$(date +"%Y%m%d_%H%M%S")
 #First train the pretrained model
-echo $PYTHON ${exp_dir}/${TRAIN_CODE} \
+$PYTHON ${exp_dir}/${TRAIN_CODE} \
   --config=${config} \
   data_root $3 \
   save_path ${exp_dir} \
-  weight /home/eco02/Luc/point-transformer/pretrained_s3dis_xyz.pth \
+  weight /home/eco02/Luc/point-transformer/s3dis_xyz_2_class_head.pth \
+#  resume /home/eco02/Luc/point-transformer/${model_dir}/model_best.pth \
   2>&1 | tee ${exp_dir}/train-$now.log
 
+
+mv ${exp_dir}/model ${exp_dir}/model_pretrained
+mkdir ${exp_dir}/model
+
 #Next do the untrained model
-echo $PYTHON ${exp_dir}/${TRAIN_CODE} \
+$PYTHON ${exp_dir}/${TRAIN_CODE} \
   --config=${config} \
   data_root $3 \
   save_path ${exp_dir} \
+#  resume /home/eco02/Luc/point-transformer/${model_dir}/model_best.pth \
   2>&1 | tee ${exp_dir}/train-$now.log

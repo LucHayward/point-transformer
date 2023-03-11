@@ -84,7 +84,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
     # Initialise wandb
     # os.environ["WANDB_MODE"] = "dryrun"
-    wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]))
+    wandb.init(project="point-transformer", name=str(Path(__file__).parts[-3:-1]), group="redo")
     if len(wandb.config.__dict__) != 0:
         config = wandb.config
         args.update(config)
@@ -302,10 +302,12 @@ def main_worker(gpu, ngpus_per_node, argss):
     for epoch in tqdm(range(args.start_epoch, args.epochs)):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        #     TODO LOOK HERE
         loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
         scheduler.step()
         wandb.log({'lr': scheduler.get_last_lr()[-1]}, commit=False)
         epoch_log = epoch + 1
+        #     TODO LOOK HERE
         if main_process():
             wandb.log({'loss_train': loss_train,
                        'mIoU_train': mIoU_train,
@@ -314,6 +316,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                        "epoch_log": epoch_log}, commit=False)
 
         is_best = False
+        # if args.evaluate:
         if args.evaluate and (epoch_log % args.eval_freq == 0):
             if args.data_name == 'shapenet':
                 raise NotImplementedError()
@@ -328,6 +331,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                            "epoch_log": epoch_log})
                 is_best = mIoU_val > best_iou
                 best_iou = max(best_iou, mIoU_val)
+                # exit(0)
 
         if (epoch_log % args.save_freq == 0) and main_process():
             filename = args.save_path + '/model/model_last.pth'
@@ -452,7 +456,11 @@ def validate(val_loader, model, criterion, epoch=0):
     model.eval()
     end = time.time()
     max_pts = 0
+    # c,f,t,p=[],[],[],[]
     for i, (coord, feat, target, offset) in enumerate(tqdm(val_loader)):
+        # c.append(coord)
+        # f.append(feat)
+        # t.append(target)
         if max_pts < coord.shape[0]:
             max_pts = coord.shape[0]
             logger.info(f'{max_pts=}')
@@ -476,7 +484,7 @@ def validate(val_loader, model, criterion, epoch=0):
 
         if hasattr(args, "save_val_output"):
             torch.save((coord.cpu(), feat.cpu(), target.cpu(), offset.cpu(), output.cpu()), f"VI{epoch + 1}.pt")
-
+        # p.append(output)
         intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
         if args.multiprocessing_distributed:
             dist.all_reduce(intersection), dist.all_reduce(union), dist.all_reduce(target)

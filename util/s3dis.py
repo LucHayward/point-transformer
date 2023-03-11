@@ -36,7 +36,9 @@ class S3DIS(Dataset):
         # elif data.shape[1] == 3:
         #     coord, feat, label = data[:, :3], np.ones_like(data[:,3]), data[:, -1]
         else:  # My format, xyzir, this should be generally applicable, actually.
-            coord, feat, label = data[:, :3], data[:, 3:-1], data[:, -1]
+            # coord, feat, label = data[:, :3], data[:, 3:-1], data[:, -1]
+            coord, feat, label = data[:, :3], np.ones_like(data[:,3]), data[:, -1]
+
             if self.dupe_intensity: feat = data[:, [3, 3, 3]]
         coord, feat, label = data_prepare(coord, feat, label, self.split, self.voxel_size, self.voxel_max,
                                           self.transform, self.shuffle_index)

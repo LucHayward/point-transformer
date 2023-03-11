@@ -1,1 +1,0 @@
-python exp/Lunnahoja_25%/xyz/train.py --config=config/Lunnahoja_25%/Lunnahoja_25%_xyz.yaml data_root dataset/Lunnahoja/25% save_path exp/Lunnahoja_25%/xyz

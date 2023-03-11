@@ -46,7 +46,7 @@ def data_prepare(coord, feat, label, split='train', voxel_size=0.04, voxel_max=N
     coord_min = np.min(coord, 0)
     coord -= coord_min
     coord = torch.FloatTensor(coord)
-    if feat.shape[1] != 0 and np.mean(feat[:, :3]) > 1:
+    if len(feat.shape) >1 and feat.shape[1] != 0 and np.mean(feat[:, :3]) > 1:
         feat /= 255.
     feat = torch.FloatTensor(feat)
     label = torch.LongTensor(label)
