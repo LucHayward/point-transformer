@@ -2,6 +2,10 @@
 This repository reproduces [Point Transformer](https://arxiv.org/abs/2012.09164). \
 The codebase is provided by the first author of [Point Transformer](https://arxiv.org/abs/2012.09164).
 
+# Forked Additions
+This repository remains largely unchanged with the exception of the training configurations needed to adapt the Point Transformer model to my experiments.
+
+
 ## Notes
 - For shape classification and part segmentation, please use paconv-codebase branch. After some testing, we will merge it into the master branch.
 
